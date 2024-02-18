@@ -58,7 +58,6 @@ string hazard;
 void loop() {
   //If we find a packet.
 
-}
   digitalWrite(runLight, HIGH);
    if(mcp.parsePacket()) {
     //And that packet has the ID we're looking for..
