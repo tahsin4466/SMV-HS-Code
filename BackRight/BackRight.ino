@@ -48,12 +48,15 @@ void setup() {
 }
 
 
-const int runLight= 9;
-const int brakeLight = 10;
-const in hazardLight = 11;
+const int runLight= 6;
+const int brakeLight = 5;
+const int hazardLight = 9;
+int previousMillis = 0;
+int interval = 0;
 string run;
 string brake;
 string hazard;
+string blinker;
 //Continuously loop and search for packets
 void loop() {
   //If we find a packet.
@@ -71,7 +74,28 @@ void loop() {
           digitalWrite(brakeLight, HIGH);
         }
         if (message == hazard) {
+          if (currentMillis - previousMillis >= interval) {
+      previousMillis = currentMillis;
+          if (digitalRead(hazardLight) == LOW) {
           digitalWrite(hazardLight, HIGH);
+          interval = 750
+          } else {
+            digitalWrite(hazardLight, LOW);
+            interval = 750;
+          }
+          
+         if (message == blinker) {
+          if (currentMillis - previousMillis >= interval) {
+      previousMillis = currentMillis;
+          if (digitalRead(hazardLight) == LOW) {
+          digitalWrite(hazardLight, HIGH);
+          interval = 750
+          } else {
+            digitalWrite(hazardLight, LOW);
+            interval = 750;
+
+      
+
         }
       }
       //Add a newline once the packet is finished
