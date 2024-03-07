@@ -7,40 +7,25 @@
  * 
  * Interfaces with the BMI323 and LIS3MLTR sensors through an Adafruit Feather RP2040 CAN
  * Outputs acceleration, gyroscope, and magnetometer data
- * Data output is given with respect to Top, Right, and Up (as defined by "Orientation of Sensors" Google Doc)
+ * Data output is given with respect to Global Top, Right, and Up (as defined by "Orientation of Sensors" Google Doc)
  * Before changing settings, make sure to consult datasheet
+ * 
+ * ONLY code that should be changed every time are BOARD_LOCATION, ROLL, and PITCH
+ * Code that could be changed are the LIS3 and BMI SETTINGS (NOT REGISTERS)
+ * 
  */
 
 //IMPORTANT!!! MUST CHANGE TO MATCH BOARD
-#define BOARD_LOCATION 2
+#define BOARD_LOCATION 0
 //0 = Back Left/Front Left
 //1 = Back Right
 //2 = Front Right
 //3 = Front Center
 
-//pin definitions
-//DO NOT CHANGE
-#if BOARD_LOCATION == 0
-  #define CS_LIS3 12
-  #define CS_BMI 25
-  #define INT_LIS3 10
-  #define DRDY 11
-#elif BOARD_LOCATION == 1
-  #define CS_LIS3 29
-  #define CS_BMI 25
-  #define INT_LIS3 13
-  #define DRDY 10
-#elif BOARD_LOCATION == 2
-  #define CS_LIS3 24
-  #define CS_BMI 10
-  #define INT_LIS3 26
-  #define DRDY 29
-#elif BOARD_LOCATION == 3
-  #define CS_LIS3 12
-  #define CS_BMI 25
-  #define INT_LIS3 10
-  #define DRDY 11
-#endif
+//EVEN MORE IMPORTANT!! MUST CHANGE TO MATCH BOARD
+//UNITS IN RADIANS
+#define ROLL 0.231
+#define PITCH 0.647
 
 //LIS3
 //define settings
@@ -88,6 +73,30 @@
 #define GYRO_DATA_Y 0x07
 #define GYRO_DATA_Z 0x08
 #define TEMP_DATA 0x09
+
+//pin definitions
+//DO NOT CHANGE
+#if BOARD_LOCATION == 0
+  #define CS_LIS3 12
+  #define CS_BMI 25
+  #define INT_LIS3 10
+  #define DRDY 11
+#elif BOARD_LOCATION == 1
+  #define CS_LIS3 29
+  #define CS_BMI 25
+  #define INT_LIS3 13
+  #define DRDY 10
+#elif BOARD_LOCATION == 2
+  #define CS_LIS3 24
+  #define CS_BMI 10
+  #define INT_LIS3 26
+  #define DRDY 29
+#elif BOARD_LOCATION == 3
+  #define CS_LIS3 12
+  #define CS_BMI 25
+  #define INT_LIS3 10
+  #define DRDY 11
+#endif
 
 #define DUMMY_BYTE 0x00
 
@@ -246,7 +255,7 @@ void loop() {
 
   //changing x, y, z to top, right, up coordinate system
   
-  double top_mag, right_mag, up_mag, top_acc, right_acc, up_acc, top_gyro, right_gyro, up_gyro;
+  double front_mag, right_mag, up_mag, front_acc, right_acc, up_acc, front_gyro, right_gyro, up_gyro;
 
   //z is always up
   up_mag = z_mag;
@@ -256,9 +265,9 @@ void loop() {
   //change x and y to top and right based on board location
   switch(BOARD_LOCATION) {
     case 0:
-      top_mag = y_mag;
-      top_acc = y_acc;
-      top_gyro = y_gyro;
+      front_mag = y_mag;
+      front_acc = y_acc;
+      front_gyro = y_gyro;
 
       right_mag = x_mag;
       right_acc = x_acc;
@@ -266,9 +275,9 @@ void loop() {
       
       break;
     case 1:
-      top_mag = -x_mag;
-      top_acc = -x_acc;
-      top_gyro = -x_gyro;
+      front_mag = -x_mag;
+      front_acc = -x_acc;
+      front_gyro = -x_gyro;
 
       right_mag = y_mag;
       right_acc = y_acc;
@@ -276,9 +285,9 @@ void loop() {
       
       break;
     case 2:
-      top_mag = x_mag;
-      top_acc = x_acc;
-      top_gyro = x_gyro;
+      front_mag = x_mag;
+      front_acc = x_acc;
+      front_gyro = x_gyro;
 
       right_mag = -y_mag;
       right_acc = -y_acc;
@@ -286,9 +295,9 @@ void loop() {
       
       break;
     case 3:
-      top_mag = -y_mag;
-      top_acc = x_acc;
-      top_gyro = x_gyro;
+      front_mag = -y_mag;
+      front_acc = x_acc;
+      front_gyro = x_gyro;
 
       right_mag = -x_mag;
       right_acc = -y_acc;
@@ -296,17 +305,39 @@ void loop() {
       break;
   }
 
+  double global_front_acc, global_right_acc, global_up_acc, global_front_gyro, global_right_gyro, global_up_gyro, global_front_mag, global_right_mag, global_up_mag;
+
+  global_front_acc = toGlobalFront(front_acc, right_acc, up_acc);
+  global_front_gyro = toGlobalFront(front_gyro, right_gyro, up_gyro);
+  global_front_mag = toGlobalFront(front_mag, right_mag, up_mag);
+
+  global_right_acc = toGlobalRight(front_acc, right_acc, up_acc);
+  global_right_gyro = toGlobalRight(front_gyro, right_gyro, up_gyro);
+  global_right_mag = toGlobalRight(front_mag, right_mag, up_mag);
+
+  global_up_acc = toGlobalUp(front_acc, right_acc, up_acc);
+  global_up_gyro = toGlobalUp(front_gyro, right_gyro, up_gyro);
+  global_up_mag = toGlobalUp(front_mag, right_mag, up_mag);
+  
+
   //xyz coordinate print
   //Serial.println("x_mag: " + String(x_mag) + "; y_mag: " + String(y_mag) + "; z_mag: " + String(z_mag));
   //Serial.println("x_acc: " + String(x_acc) + "; y_acc: " + String(y_acc) + "; z_acc: " + String(z_acc));
   //Serial.println("x_gyro: " + String(x_gyro) + "; y_gyro: " + String(y_gyro) + "; z_gyro: " + String(z_gyro));
   //Serial.println("temp: " + String(temp_acc_gyro));
 
-  //top right up coordinate print
-  Serial.println("top_mag: " + String(top_mag) + "; right_mag: " + String(right_mag) + "; up_mag: " + String(up_mag));
-  Serial.println("top_acc: " + String(top_acc) + "; right_acc: " + String(right_acc) + "; up_acc: " + String(up_acc));
-  Serial.println("top_gyro: " + String(top_gyro) + "; right_gyro: " + String(right_gyro) + "; up_gyro: " + String(up_gyro));
-  Serial.println("temp: " + String(temp_acc_gyro));
+  //board's top right up coordinate print
+  //Serial.println("top_mag: " + String(front_mag) + "; right_mag: " + String(right_mag) + "; up_mag: " + String(up_mag));
+  //Serial.println("top_acc: " + String(front_acc) + "; right_acc: " + String(right_acc) + "; up_acc: " + String(up_acc));
+  //Serial.println("top_gyro: " + String(front_gyro) + "; right_gyro: " + String(right_gyro) + "; up_gyro: " + String(up_gyro));
+  //Serial.println("temp: " + String(temp_acc_gyro));
+
+  //global top right up coordinate print
+  //Serial.println("global_front_mag: " + String(global_front_mag) + "; global_right_mag: " + String(global_right_mag) + "; global_up_mag: " + String(global_up_mag));
+  Serial.println("global_front_acc: " + String(global_front_acc) + "; global_right_acc: " + String(global_right_acc) + "; global_up_acc: " + String(global_up_acc));
+  //Serial.println("global_front_gyro: " + String(global_front_gyro) + "; global_right_gyro: " + String(global_right_gyro) + "; global_up_gyro: " + String(global_up_gyro));
+  //Serial.println("temp: " + String(temp_acc_gyro));
+  
   
   delay(100); 
 }
@@ -415,4 +446,14 @@ double twosComplimentTempMag(int data) {
 //twos compliment for acc/gyro temp data
 double twosComplimentTempAccGyro(int data) {
   return data/512. + 23;
+}
+
+double toGlobalFront(double front, double right, double up) {
+  return front*cos(PITCH) - up*sin(PITCH);
+}
+double toGlobalRight(double front, double right, double up) {
+  return front*sin(ROLL)*sin(PITCH) + right*cos(ROLL) + up*sin(ROLL)*cos(PITCH);
+}
+double toGlobalUp(double front, double right, double up) {
+  return front*cos(ROLL)*sin(PITCH) - right*sin(ROLL) + up*cos(PITCH)*cos(ROLL);
 }
