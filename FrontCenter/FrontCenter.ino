@@ -23,11 +23,11 @@
 #endif
 #define CAN_BAUDRATE (250000)
 Adafruit_MCP2515 mcp(CS_PIN);
-Servo myservo;  // create servo object to control a servo
-int pos = -90;    // variable to store the servo position
+Servo wiperservo;  // create servo object to control a servo
+int pulseWidth;    // variable to store the servo position
 
 void setup() {
-  myservo.attach(9);  // attaches the servo on pin 9 to the servo object
+  wiperservo.attach(26);  // attaches the servo on pin 9 to the servo object
   Serial.begin(115200);
   while(!Serial) delay(10);
 
@@ -48,17 +48,17 @@ void loop() {
       }
 
       if (message == "wiper") {
-        for (int pulseWidth = 500; pulseWidth <= 2500; pulseWidth += 10) { // Increment by 10us for smoother motion
-          myservo.writeMicroseconds(pulseWidth); // Set the pulse width directly
+        for (pulseWidth = 1000; pulseWidth <= 2000; pulseWidth += 10) { // Increment by 10us for smoother motion
+          wiperservo.writeMicroseconds(pulseWidth); // Set the pulse width directly
           delay(5); // Short delay to allow the servo to catch up
         }
-
         delay(500); // Wait for half a second at the end of the sweep
 
-        for (int pulseWidth = 2500; pulseWidth >= 500; pulseWidth -= 10) { // Decrement by 10us for smoother motion
-          myservo.writeMicroseconds(pulseWidth); // Set the pulse width directly
+        for (int pulseWidth = 2000; pulseWidth >= 1000; pulseWidth -= 10) { // Decrement by 10us for smoother motion
+          wiperservo.writeMicroseconds(pulseWidth); // Set the pulse width directly
           delay(5); // Short delay to allow the servo to catch up
-            }
+        }
+        delay(100);
     }
   }
 
