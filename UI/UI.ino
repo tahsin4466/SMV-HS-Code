@@ -1,133 +1,90 @@
 #include "SMVcanbus.h"
 #include <string.h>
 
+//Const declerations
 CANBUS can(UI);
-const double ON = 1
-const double OFF = 0
+double OFF = 0;
+double ON = 1;
+const int numInputs = 8;
+const unsigned long inputDelay = 50;
+enum Type {SWITCH, BUTTON};
 
-const int reverseSwitchPin = 26;
-const int headlightSwitchPin = 27;
-const int wiperSwitchPin = 28;
-const int hazardSwitchPin = 29;
-const int spareSwitchPin = 24;
+//H&S Input Class
+class Input {
+  public:
+    //Constructor and destructor
+    Input(int pin, Type type, UIMessage message):
+      m_inputPin(pin), m_inputType(type), m_message(message), m_inputState(OFF), m_lastCheck(0) {pinMode(pin, INPUT);};
+    ~Input() = default;
+   
+   //Main function - detect the current input state and send messages
+    void detectState();
 
-const int leftSwitchPin = 9;
-const int rightSwitchPin = 6;
+    //Accessors
+    double getState() {return m_inputState;};
 
-const int hornButtonPin = 10;
-const int daqButtonPin = 11;
-const int spareButtonPin = 12;
+    int getPin() {return m_inputPin;};
+    Type getType() {return m_inputType;};
+    UIMessage getMessageType() {return m_message;};
 
+  private:
+    int m_inputPin;
+    Type m_inputType;
+    double m_inputState;
+    UIMessage m_message;
+    unsigned long m_lastCheck;
+};
+
+//State detection function implementation
+void Input::detectState() {
+  //Read pin via digitalRead and convert
+  int pinState = digitalRead(m_inputPin);
+  double newState = (pinState == HIGH) ? ON : OFF;
+
+  //Check if state is different
+  if (newState != m_inputState) {
+    //Check if outside of input delay range (crucial for misinputs)
+    if ((millis()-m_lastCheck) > inputDelay) {
+      //Update state and check time, send can message
+      m_inputState = newState;
+      m_lastCheck = millis();
+      can.send(m_inputState, m_message);
+    }
+  }
+  else {
+    //Update check time, valid as no state change
+    m_lastCheck = millis();
+  }
+}
+
+//Input object array
+Input* inputObjects[numInputs];
+
+//Arduino setup
 void setup() {
+  //Create input objects and populate
+  inputObjects[0] = new Input(26, SWITCH, Reverse);
+  inputObjects[1] = new Input(27, SWITCH, Headlights);
+  inputObjects[2] = new Input(28, SWITCH, Wipers);
+  inputObjects[3] = new Input(29, SWITCH, Hazard);
+  inputObjects[4] = new Input(9, SWITCH, Blink_Left);
+  inputObjects[5] = new Input(6, SWITCH, Blink_Right);
+  inputObjects[6] = new Input(10, BUTTON, Horn); //NOTE: LIBRARY SHENANIGANS, THIS ACTUALLY SENDS DAQ BUT REFERS TO HORN
+  //inputObjects[7] = new Input(11, BUTTON, DAQ);
+  //Input spareButton = Input(12, BUTTON);
+  //Input spareSwitch = Input(24, SWITCH);
+  
+  //Set CAN serialization
   Serial.begin(115200);
   can.begin();
-  delay(400);
+  delay(500);
 }
 
+//Arduino loop
 void loop() {
-  //NOTE
-  //You MUST only send signals on change, not every clock cycle! Please modify!
-  reverseState = digitalRead(reverseSwitchPin);
-  headlightState = digitalRead(headlightSwitchPin);
-  wiperState = digitalRead(wiperSwitchpin);
-  hazardState = digitalRead(hazardSwitchPin);
-  
-  hornState = digitalRead(hornButtonPin);
-
-  leftState = digitalRead(leftSwitchPin);
-  rightState = digitalRead(rightSwitchPin);
-
-  //Back running light is always on when powered on
-  can.send(ON, Back_Running_Light)
-
-  //Check reverse state
-  if (reverseState == HIGH) {
-    can.send(ON, Reverse);
+  //Go through each button, check state and send messages
+  for (int i=0; i<numInputs; i++) {
+    inputObjects[i]->detectState();
   }
-  else {
-    can.send(OFF, Reverse);
-  }
-
-  //Check headlight state
-  if (headlightState == HIGH) {
-    can.send(ON, Headlight);
-  }
-  else {
-    can.send(OFF, Reverse);
-  }
-
-  //Check wiper state
-  if (wiperSate == HIGH) {
-    can.send(ON, Wiper);
-  }
-  else {
-    can.send(OFF, Wiper);
-  }
-
-  //Check hazard sate
-  if (hazardState == HIGH) {
-    can.send(ON, Hazard);
-  }
-  else {
-    can.send(OFF, Hazard);
-    //Check indicator states only if hazard is off
-    //Chech left indicator state
-    if (leftState == HIGH) {
-      can.send(ON, Left_Blinker);
-    }
-    else {
-      can.send(OFF, Left_Blinker);
-    }
-    //Check right indicator state
-    if (rightState == HIGH) {
-      can.send(ON, Right_Blinker);
-    }
-    else {
-      can.send(OFF, Right_Blinker)
-    }
-  }
-};
-
-enum devices {
-  Bear_1,
-  Bear_2,
-  UI,
-  HS,
-  DAQ,
+  delay(500);
 }
-
-enum motorMessage {
-    RPM,
-    Motor_State,
-    Cruise,
-    M_Error_Status,
-    Throttle,
-    Brake,
-    Meter_Count
-};
-
-enum UIMessage {
-  Left_Blinker,
-  Right_Blinker,
-  Headlight,
-  Back_Running_Light,
-  Horn,
-  Reverse,
-  Wiper,
-  UI_Error_Status
-}
-
-enum HSMessage {
-  Gryo,
-  Accel,
-  Mag,
-  Temp
-  HS_Error_Status
-}
-
-enum DAQMessage {
-    Longitude,
-    Latitude,
-    Speed
-    D_Error_Status
-};
