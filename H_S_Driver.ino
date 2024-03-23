@@ -1,4 +1,5 @@
 #include <SPI.h>
+#include "SMVcanbus.h"
 
 /*
  * H&S Board Driver Code 
@@ -17,15 +18,16 @@
 
 //IMPORTANT!!! MUST CHANGE TO MATCH BOARD
 #define BOARD_LOCATION 0
-//0 = Back Left/Front Left
+//0 = Back Left
 //1 = Back Right
-//2 = Front Right
-//3 = Front Center
+//2 = Front Left
+//3 = Front Right
+//4 = Front Center
 
 //EVEN MORE IMPORTANT!! MUST CHANGE TO MATCH BOARD
 //UNITS IN RADIANS
-#define ROLL 0.231
-#define PITCH 0.647
+#define ROLL 0
+#define PITCH 0
 
 //LIS3
 //define settings
@@ -81,21 +83,42 @@
   #define CS_BMI 25
   #define INT_LIS3 10
   #define DRDY 11
+  #define BOARD HS_BL
+  #define MOSFET_1 4
+  #define MOSFET_2 26
+  #define MOSFET_3 1
 #elif BOARD_LOCATION == 1
   #define CS_LIS3 29
   #define CS_BMI 25
   #define INT_LIS3 13
   #define DRDY 10
+  #define BOARD HS_BR
+  #define MOSFET_1 9
+  #define MOSFET_2 5
+  #define MOSFET_3 6
 #elif BOARD_LOCATION == 2
-  #define CS_LIS3 24
-  #define CS_BMI 10
-  #define INT_LIS3 26
-  #define DRDY 29
-#elif BOARD_LOCATION == 3
   #define CS_LIS3 12
   #define CS_BMI 25
   #define INT_LIS3 10
   #define DRDY 11
+  #define BOARD HS_FL
+  #define MOSFET_1 4
+  #define MOSFET_2 26
+#elif BOARD_LOCATION == 3
+  #define CS_LIS3 24
+  #define CS_BMI 10
+  #define INT_LIS3 26
+  #define DRDY 29
+  #define BOARD HS_FR
+  #define MOSFET_1 10
+  #define MOSFET_2 9
+#elif BOARD_LOCATION == 4
+  #define CS_LIS3 12
+  #define CS_BMI 25
+  #define INT_LIS3 10
+  #define DRDY 11
+  #define BOARD HS_FC
+  #define MOSFET_1 6
 #endif
 
 #define DUMMY_BYTE 0x00
@@ -142,12 +165,21 @@ uint16_t gyro_conf() {
   return (uint16_t) GYRO_ODR | (uint16_t) (GYRO_SCALE << 4) | (uint16_t) (GYRO_PERFORMANCE << 12);
 }
 
+CANBUS can(BOARD);
 
 void setup() {
   pinMode(CS_LIS3, OUTPUT); //initialize pins
   pinMode(CS_BMI, OUTPUT);
   pinMode(INT_LIS3, OUTPUT);
   pinMode(DRDY, OUTPUT);
+
+  pinMode(MOSFET_1, OUTPUT);
+  if (BOARD_LOCATION != 4) { //all boards but Front Center use 2 MOSFETS
+    pinMode(MOSFET_2, OUTPUT);
+  }
+  if (BOARD_LOCATION == 0 || BOARD_LOCATION == 1) { //only Back Left and Back Right use 3 MOSFETS
+    pinMode(MOSFET_3, OUTPUT);
+  }
   
   Serial.begin(115200);
   digitalWrite(CS_LIS3, HIGH); //set chip selects to inactive
@@ -179,6 +211,8 @@ void setup() {
   SPI.transfer(highByte(gyro_conf()));
   digitalWrite(CS_BMI, HIGH);
   SPI.endTransaction();
+
+  can.begin();
 }
 
 void loop() {
@@ -285,6 +319,16 @@ void loop() {
       
       break;
     case 2:
+      front_mag = y_mag;
+      front_acc = y_acc;
+      front_gyro = y_gyro;
+
+      right_mag = x_mag;
+      right_acc = x_acc;
+      right_gyro = x_gyro;
+      
+      break;
+    case 3:
       front_mag = x_mag;
       front_acc = x_acc;
       front_gyro = x_gyro;
@@ -294,7 +338,7 @@ void loop() {
       right_gyro = -y_gyro;
       
       break;
-    case 3:
+    case 4:
       front_mag = -y_mag;
       front_acc = x_acc;
       front_gyro = x_gyro;
@@ -334,12 +378,88 @@ void loop() {
 
   //global top right up coordinate print
   //Serial.println("global_front_mag: " + String(global_front_mag) + "; global_right_mag: " + String(global_right_mag) + "; global_up_mag: " + String(global_up_mag));
-  Serial.println("global_front_acc: " + String(global_front_acc) + "; global_right_acc: " + String(global_right_acc) + "; global_up_acc: " + String(global_up_acc));
+  //Serial.println("global_front_acc: " + String(global_front_acc) + "; global_right_acc: " + String(global_right_acc) + "; global_up_acc: " + String(global_up_acc));
   //Serial.println("global_front_gyro: " + String(global_front_gyro) + "; global_right_gyro: " + String(global_right_gyro) + "; global_up_gyro: " + String(global_up_gyro));
   //Serial.println("temp: " + String(temp_acc_gyro));
+
+  /*can.send(global_front_acc, acc_front);
+  can.send(global_right_acc, acc_right);
+  can.send(global_up_acc, acc_up);
+  can.send(global_front_gyro, gyro_front);
+  can.send(global_right_gyro, gyro_right);
+  can.send(global_up_gyro, gyro_up);
+  can.send(global_front_mag, mag_front);
+  can.send(global_right_mag, mag_right);
+  can.send(global_up_mag, mag_up);
+  can.send(temp_acc_gyro, temp);
+
+  Serial.println("sent data!");
+  */
+
+
+  //receiving data
+  can.looper();
+  if(can.isThere()) { //read datatype to know what action needs to be taken
+    char* dataType = can.getDataType();
+    Serial.println(*dataType);
+    switch(BOARD_LOCATION) { //each board has different functions
+       case 0:
+          Serial.println("In case 0");
+          switch(*dataType) {
+            case 'B': //Brake
+              digitalWrite(MOSFET_1, HIGH); //arbitrary MOSFET for each function
+              Serial.println("In case Brake");
+              break;
+            case 'R': //Blink Left
+              digitalWrite(MOSFET_2, HIGH);
+              Serial.println("In case Blink Left");
+              break;
+          }
+          break;
+       case 1:
+          switch(*dataType) {
+            case 'B': //Brake
+              digitalWrite(MOSFET_1, HIGH);
+              break;
+            case 'M': //Blink Right
+              digitalWrite(MOSFET_2, HIGH);
+              break;
+          }
+          break;
+       case 2:
+         switch(*dataType) {
+             case 'E': //Headlights
+              digitalWrite(MOSFET_1, HIGH);
+              break;
+             case 'M': //Blink Left
+              digitalWrite(MOSFET_2, HIGH);
+              break;
+          }
+          break;
+       case 3:
+         switch(*dataType) {
+            case 'E':
+              digitalWrite(MOSFET_1, HIGH);
+              break;
+            case 'R': //Blink Right
+              digitalWrite(MOSFET_2, HIGH);
+              break;
+          }
+          break;
+       case 4:
+         switch(*dataType) {
+            case 'U': //Wiper
+              digitalWrite(MOSFET_1, HIGH);
+              break;
+            case 'T': //Horn
+              digitalWrite(5, HIGH); //wiper horn doesn't use MOSFET
+              break;
+          }
+          break;
+    }
+  }
   
-  
-  delay(100); 
+  delay(100);
 }
 
 
