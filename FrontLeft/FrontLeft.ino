@@ -1,61 +1,74 @@
-//This is all of our include stuff
-//Feel free to ignore this! It's not important for us
-#include <Adafruit_MCP2515.h>
-#ifdef ESP8266
-   #define CS_PIN    2
-#elif defined(ESP32) && !defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) && !defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3)
-   #define CS_PIN    14
-#elif defined(TEENSYDUINO)
-   #define CS_PIN    8
-#elif defined(ARDUINO_STM32_FEATHER)
-   #define CS_PIN    PC5
-#elif defined(ARDUINO_NRF52832_FEATHER)
-   #define CS_PIN    27
-#elif defined(ARDUINO_MAX32620FTHR) || defined(ARDUINO_MAX32630FTHR)
-   #define CS_PIN    P3_2
-#elif defined(ARDUINO_ADAFRUIT_FEATHER_RP2040)
-   #define CS_PIN    7
-#elif defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_CAN)
-   #define CS_PIN    PIN_CAN_CS
-#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) // PiCowbell CAN Bus
-   #define CS_PIN    20
-#else
-   #define CS_PIN    5
-#endif
-#define CAN_BAUDRATE (250000)
-Adafruit_MCP2515 mcp(CS_PIN);
-//
+#include "SMVcanbus.h"
+#define CS_LIS3 24
+#define CS_BMI 10
+#define INT_LIS3 26
+#define DRDY 29
+#define BOARD HS_FL
+#define MOSFET_1 27
+#define MOSFET_2 28
 
+CANBUS can(HS);
+bool headlightToggle = false;
+bool blinkerToggle = false;
+bool blinkerState = false;
+unsigned long blinkerLastToggled = 0;
 
-//CODE BEGINS HERE
-//Setup, also ignore!
-void setup() {
-  Serial.begin(115200);
-  while(!Serial) delay(10);
+// Variables to keep track of the current state to avoid unnecessary toggles
+bool currentHeadlightState = false;
+bool currentBlinkerState = false;
 
-  Serial.println("MCP2515 Sender test!");
+bool setToggle(double data) {
+  return data == 1;
+}
 
-  if (!mcp.begin(CAN_BAUDRATE)) {
-    Serial.println("Error initializing MCP2515.");
-    while(1) delay(10);
+//Function to toggle blinker on and off asynchronously
+void toggleBlinkerState() {
+  if ((millis() - blinkerLastToggled) > 600) {
+    blinkerState = !blinkerState;
+    blinkerLastToggled = millis();
   }
-  Serial.println("MCP2515 chip found");
+}
+
+void setup() {
+  pinMode(MOSFET_1, OUTPUT);
+  pinMode(MOSFET_2, OUTPUT);
+  Serial.begin(115200);
+  can.begin();
 }
 
 void loop() {
-  //Let's create a packet!
-  mcp.beginPacket(0x00); //Our ID
-  mcp.write('H'); //Add first byte of data (one char = one byte)
-  mcp.write('e'); //Second byte
-  mcp.write('l'); //Third byte
-  mcp.write('l'); //Fourth byte
-  mcp.write('o'); //Fifth byte
-  mcp.endPacket(); //End and send our packet!
+  //CAN message checker
+  can.looper();
+  if (can.isThere()) {
+    char* device = can.getDataType();
+    double data = can.getData();
+    if (strcmp(device, "Headlights") == 0) {
+      headlightToggle = setToggle(data);
+    }
+    else if (strcmp(device, "Blink_Left") == 0) { 
+      blinkerToggle = setToggle(data);
+    }
+    else if (strcmp(device, "Hazard") == 0) { 
+      blinkerToggle = setToggle(data);
+    }
+  }
 
-  Serial.println("Sent packet!");
+  //Headlight toggler - only update if state has changed
+  if (headlightToggle != currentHeadlightState) {
+    digitalWrite(MOSFET_1, headlightToggle ? HIGH : LOW);
+    currentHeadlightState = headlightToggle;
+  }
 
-  //Add a delay of 1 second (so a message every second)
-  delay(1000);
-
-
+  //Blinker toggler - only update if state has changed
+  if (blinkerToggle) {
+    toggleBlinkerState(); 
+    if (blinkerState != currentBlinkerState) {
+      digitalWrite(MOSFET_2, blinkerState ? HIGH : LOW);
+      currentBlinkerState = blinkerState;
+    }
+  }
+  else if (currentBlinkerState) { // If blinker is currently on but should be off
+    digitalWrite(MOSFET_2, LOW);
+    currentBlinkerState = false;
+  }
 }

@@ -7,7 +7,6 @@
 #define BOARD HS_FC
 #define MOSFET_1 6
 #define PWM_1 26
-//GPIO 6
 
 CANBUS can(HS);
 Servo wiperservo;
@@ -17,6 +16,10 @@ unsigned long previousMillis = 0; // will store last time the servo was updated
 const long interval = 5; // interval at which to move servo (milliseconds)
 int pulseWidth = 1000; // Servo position
 bool increasing = true; // Direction of servo movement
+
+bool setToggle(double data) {
+  return data == 1;
+}
 
 void setup() {
   wiperservo.attach(PWM_1); // attaches the servo on pin 26 to the servo object
@@ -28,35 +31,22 @@ void setup() {
 void loop() {
   can.looper();
   if (can.isThere()) {
-    if (strcmp(can.getDataType(), "Wipers") == 0) {
-      double data = can.getData();
-      if (data == 1) {
-        wiperToggle = true;
-      } 
-      else if (data == 0) {
-        wiperToggle = false;
-      }
+    char* device = can.getDataType();
+    double data = can.getData();
+    if (strcmp(device, "Wipers") == 0) {
+      wiperToggle = setToggle(data);
     }
-    else if (strcmp(can.getDataType(), "Horn") == 0) {
-      double data = can.getData();
-      if (data == 1) {
-        hornToggle = true;
-      }
-      else if (data == 0) {
-        hornToggle = false;
-      }
+    else if (strcmp(device, "Horn") == 0) {
+      hornToggle = setToggle(data);
     }
   }
 
   unsigned long currentMillis = millis();
 
-  //Horn check
-  if (hornToggle) {
-    digitalWrite(MOSFET_1, HIGH);
-  }
-  else {
-    digitalWrite(MOSFET_1, LOW);
-  }
+  //Horn toggler
+  digitalWrite(MOSFET_1, hornToggle ? HIGH : LOW);
+
+  //Wiper toggler
   // Check if it's time to move the servo
   if (wiperToggle && currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis; // save the last time you moved the servo
