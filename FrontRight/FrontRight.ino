@@ -1,11 +1,11 @@
 #include "SMVcanbus.h"
-#define CS_LIS3 12
-#define CS_BMI 25
-#define INT_LIS3 10
-#define DRDY 11
+#define CS_LIS3 24
+#define CS_BMI 10
+#define INT_LIS3 26
+#define DRDY 29
 #define BOARD HS_FR
-#define MOSFET_1 4
-#define MOSFET_2 26
+#define MOSFET_1 6
+#define MOSFET_2 5
 
 CANBUS can(HS);
 bool headlightToggle = false;
@@ -42,22 +42,29 @@ void loop() {
   if (can.isThere()) {
     char* device = can.getDataType();
     double data = can.getData();
+    Serial.println(device);
+    Serial.println(data);
     if (strcmp(device, "Headlights") == 0) {
       headlightToggle = setToggle(data);
     }
-    else if (strcmp(device, "Blink_Left") == 0) { 
+    else if (strcmp(device, "Blink_Right") == 0) { 
+      blinkerToggle = setToggle(data);
+    }
+    else if (strcmp(device, "Hazard") == 0) { 
       blinkerToggle = setToggle(data);
     }
   }
 
   //Headlight toggler - only update if state has changed
   if (headlightToggle != currentHeadlightState) {
+    Serial.println("Toggled headlight");
     digitalWrite(MOSFET_1, headlightToggle ? HIGH : LOW);
     currentHeadlightState = headlightToggle;
   }
 
   //Blinker toggler - only update if state has changed
   if (blinkerToggle) {
+    Serial.println("Toggled blinker");
     toggleBlinkerState(); 
     if (blinkerState != currentBlinkerState) {
       digitalWrite(MOSFET_2, blinkerState ? HIGH : LOW);
@@ -65,6 +72,7 @@ void loop() {
     }
   }
   else if (currentBlinkerState) { // If blinker is currently on but should be off
+    Serial.println("Turned off blinker");
     digitalWrite(MOSFET_2, LOW);
     currentBlinkerState = false;
   }
