@@ -33,10 +33,14 @@ void loop() {
   if (can.isThere()) {
     char* device = can.getDataType();
     double data = can.getData();
+    Serial.println(device);
+    Serial.println(data);
     if (strcmp(device, "Wipers") == 0) {
+      Serial.println("Wiper toggled");
       wiperToggle = setToggle(data);
     }
-    else if (strcmp(device, "Horn") == 0) {
+    else if (strcmp(device, "DAQ") == 0) {
+      Serial.println("Horn toggled");
       hornToggle = setToggle(data);
     }
   }
@@ -49,7 +53,7 @@ void loop() {
   //Wiper toggler
   // Check if it's time to move the servo
   if (wiperToggle && currentMillis - previousMillis >= interval) {
-    previousMillis = currentMillis; // save the last time you moved the servo
+    previousMillis = currentMillis; // save te last time you moved the servo
     // Move Servo
     if (increasing) {
       pulseWidth += 10;
