@@ -34,6 +34,7 @@ void setup() {
   pinMode(MOSFET_2, OUTPUT);
   Serial.begin(115200);
   can.begin();
+  pinMode(12, OUTPUT);
 }
 
 void loop() {
@@ -46,6 +47,7 @@ void loop() {
     Serial.println(data);
     if (strcmp(device, "Headlights") == 0) {
       headlightToggle = setToggle(data);
+      digitalWrite(12, HIGH);
     }
     else if (strcmp(device, "Blink_Right") == 0) { 
       blinkerToggle = setToggle(data);
@@ -76,4 +78,5 @@ void loop() {
     digitalWrite(MOSFET_2, LOW);
     currentBlinkerState = false;
   }
+  delay(20);
 }
