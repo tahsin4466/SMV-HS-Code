@@ -76,4 +76,5 @@ void loop() {
     digitalWrite(MOSFET_2, LOW);
     currentBlinkerState = false;
   }
+  delay(20);
 }

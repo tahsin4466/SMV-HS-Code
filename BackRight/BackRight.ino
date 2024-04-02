@@ -3,7 +3,7 @@
 #define CS_BMI 10
 #define INT_LIS3 26
 #define DRDY 29
-#define BOARD HS_BL
+#define BOARD HS_BR
 #define MOSFET_1 6
 #define MOSFET_2 5
 #define MOSFET_3 9
@@ -35,6 +35,7 @@ void toggleBlinkerState() {
 void setup() {
   pinMode(MOSFET_1, OUTPUT);
   pinMode(MOSFET_2, OUTPUT);
+  pinMode(MOSFET_3, OUTPUT);
   Serial.begin(115200);
   can.begin();
 }
@@ -91,4 +92,5 @@ void loop() {
     digitalWrite(MOSFET_2, LOW);
     currentBlinkerState = false;
   }
+  delay(20);
 }

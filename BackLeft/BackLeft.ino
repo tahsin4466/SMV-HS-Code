@@ -4,9 +4,9 @@
 #define INT_LIS3 26
 #define DRDY 29
 #define BOARD HS_BL
-#define MOSFET_1 4
-#define MOSFET_2 26
-#define MOSFET_3 1
+#define MOSFET_1 6
+#define MOSFET_2 5
+#define MOSFET_3 9
 
 CANBUS can(HS);
 bool taillightToggle = false;
@@ -35,6 +35,7 @@ void toggleBlinkerState() {
 void setup() {
   pinMode(MOSFET_1, OUTPUT);
   pinMode(MOSFET_2, OUTPUT);
+  pinMode(MOSFET_3, OUTPUT);
   Serial.begin(115200);
   can.begin();
 }
@@ -91,4 +92,5 @@ void loop() {
     digitalWrite(MOSFET_2, LOW);
     currentBlinkerState = false;
   }
+  delay(20);
 }

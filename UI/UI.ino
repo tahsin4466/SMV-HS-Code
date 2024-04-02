@@ -49,6 +49,7 @@ void Input::detectState() {
       //Update state and check time, send can message
       m_inputState = newState;
       m_lastCheck = millis();
+      Serial.println("Sent packet");
       can.send(m_inputState, m_message);
     }
   }

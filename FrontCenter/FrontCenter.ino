@@ -70,4 +70,5 @@ void loop() {
     }
     wiperservo.writeMicroseconds(pulseWidth);
   }
+  delay(20);
 }
